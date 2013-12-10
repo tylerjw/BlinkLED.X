@@ -52,6 +52,9 @@ bool mem_test();
 bool mem_word_test();
 void mem_write_word(unsigned int, unsigned int);
 unsigned int mem_read_word(unsigned int);
+void mem_write(unsigned int addr, unsigned int data[], unsigned int len);
+void mem_read(unsigned int addr, unsigned int buffer[], unsigned int len);
+bool mem_block_test();
 void output_clock_sig();
 
 int main(void) {
@@ -59,7 +62,7 @@ int main(void) {
 
     PORTSetPinsDigitalOut(IOPORT_E, BIT_4); // led
     mem_init();
-    if(mem_word_test())
+    if(mem_block_test())
         mPORTEWrite(BIT_4);
     else
         mPORTEWrite(0);
@@ -145,3 +148,64 @@ unsigned int mem_read_word(unsigned int addr)
     mPORTCWrite(WE); // sets WE and clears OE
     return mPORTDRead(); // read the data and return it
 }
+
+void mem_write(unsigned int addr, unsigned int data[], unsigned int len)
+{
+    int i;
+    // write to memory
+    PORTSetPinsDigitalOut(IOPORT_D, 0xFFFF); // mem i/o pins
+    mPORTCSetBits(OE | WE); // OE and WE high
+    for(i = 0; i < len; i++)
+    {
+        mPORTBWrite(addr++); // set address to memory
+        mPORTDWrite(data[i]); // data to send
+        mPORTCClearBits(WE); // clear WE
+        mPORTCSetBits(WE); // pull WE back up
+    if(addr == 0xFFFF)
+        {
+            mPORTCSetBits(A16);
+            addr = 0x0000;
+        }
+    }
+    mPORTCClearBits(A16);
+}
+
+void mem_read(unsigned int addr, unsigned int buffer[], unsigned int len)
+{
+    int i;
+    // read from memory
+    PORTSetPinsDigitalIn(IOPORT_D, 0xFFFF); // mem i/o pins
+    mPORTCWrite(WE); // sets WE and clears OE
+
+    for(i = 0; i < len; i++)
+    {
+        mPORTBWrite(addr++); // set address to memory
+        buffer[i] = mPORTDRead(); // read the data and return it
+        if(addr == 0xFFFF)
+        {
+            mPORTCSetBits(A16);
+            addr = 0x0000;
+        }
+    }
+    mPORTCClearBits(A16);
+}
+
+bool mem_block_test()
+{
+    unsigned int data[5] = {0x1234, 0x5678, 0xABAC, 0xFFFF, 0x0101};
+    unsigned int test[5];
+    unsigned int addr = 0xEEEE;
+    unsigned int len = 5;
+    int i;
+
+    mem_write(addr, data, len);
+    mem_read(addr, test, len);
+
+    for(i = 0; i < len; i++)
+    {
+        if(data[i] != test[i])
+            return false;
+    }
+    return true;
+}
+
