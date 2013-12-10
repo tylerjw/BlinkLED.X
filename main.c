@@ -49,6 +49,9 @@ int main(void);
 void delay(volatile unsigned int count);
 void mem_init();
 bool mem_test();
+bool mem_word_test();
+void mem_write_word(unsigned int, unsigned int);
+unsigned int mem_read_word(unsigned int);
 void output_clock_sig();
 
 int main(void) {
@@ -56,7 +59,7 @@ int main(void) {
 
     PORTSetPinsDigitalOut(IOPORT_E, BIT_4); // led
     mem_init();
-    if(mem_test())
+    if(mem_word_test())
         mPORTEWrite(BIT_4);
     else
         mPORTEWrite(0);
@@ -108,3 +111,37 @@ bool mem_test()
         return false;
 }
 
+bool mem_word_test()
+{
+    unsigned int value = 0xAAAA;
+    unsigned int addr = 0x1234;
+    unsigned int test_var;
+
+    mem_write_word(addr, value);
+    test_var = mem_read_word(addr);
+
+    if(test_var == value)
+        return true;
+    else
+        return false;
+}
+
+void mem_write_word(unsigned int addr, unsigned int output)
+{
+    // write to memory
+    PORTSetPinsDigitalOut(IOPORT_D, 0xFFFF); // mem i/o pins
+    mPORTCSetBits(OE | WE); // OE and WE high
+    mPORTBWrite(addr); // set address to memory
+    mPORTDWrite(output); // data to send
+    mPORTCClearBits(WE); // clear WE
+    mPORTCSetBits(WE); // pull WE back up
+}
+
+unsigned int mem_read_word(unsigned int addr)
+{
+    // read from memory
+    PORTSetPinsDigitalIn(IOPORT_D, 0xFFFF); // mem i/o pins
+    mPORTBWrite(addr); // set address to memory
+    mPORTCWrite(WE); // sets WE and clears OE
+    return mPORTDRead(); // read the data and return it
+}
